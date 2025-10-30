@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verde Health - Test Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2ecc71;
+        }
+        .soap-note {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .soap-section {
+            margin: 10px 0;
+        }
+        .soap-section h3 {
+            color: #27ae60;
+            margin: 5px 0;
+        }
+        .soap-section p {
+            margin: 5px 0;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #27ae60;
+        }
+        input {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏥 Verde Health - SOAP Note Dashboard</h1>
+    
+    <div class="container">
+        <h2>Start New Intake Call</h2>
+        <input type="tel" id="phoneNumber" placeholder="Patient phone number" />
+        <button onclick="startCall()">Start Call</button>
+        <div id="callStatus"></div>
+    </div>
+    
+    <div class="container">
+        <h2>Recent SOAP Notes</h2>
+        <button onclick="loadSOAPNotes()">Refresh</button>
+        <div id="soapNotes"></div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;        
+        async function startCall() {
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            if (!phoneNumber) {
+                alert('Please enter a phone number');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/calls/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber })
+                });
+                const data = await response.json();
+                document.getElementById('callStatus').innerHTML = 
+                    `<p style="color: green;">✓ Call initiated to ${phoneNumber}</p>`;
+            } catch (error) {
+                document.getElementById('callStatus').innerHTML = 
+                    `<p style="color: red;">✗ Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function loadSOAPNotes() {
+            try {
+                const response = await fetch(`${API_URL}/api/soap`);
+                const notes = await response.json();
+                
+                const notesHtml = notes.map(note => `
+                    <div class="soap-note">
+                        <h3>📞 ${note.intake_sessions?.phone_number || 'Unknown'} - ${new Date(note.created_at).toLocaleString()}</h3>
+                        
+                        <div class="soap-section">
+                            <h3>S - Subjective:</h3>
+                            <p>${note.subjective}</p>
+                        </div>
+                        
+                        <div class="soap-section">
+                            <h3>O - Objective:</h3>
+                            <p>${note.objective}</p>
+                        </div>
+                        
+                        <div class="soap-section">
+                            <h3>A - Assessment:</h3>
+                            <p>${note.assessment}</p>
+                        </div>
+                        
+                        <div class="soap-section">
+                            <h3>P - Plan:</h3>
+                            <p>${note.plan}</p>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('soapNotes').innerHTML = notesHtml || '<p>No SOAP notes yet</p>';
+            } catch (error) {
+                document.getElementById('soapNotes').innerHTML = 
+                    `<p style="color: red;">Error loading notes: ${error.message}</p>`;
+            }
+        }
+        
+        // Load notes on page load
+        loadSOAPNotes();
+    </script>
+</body>
+</html>
