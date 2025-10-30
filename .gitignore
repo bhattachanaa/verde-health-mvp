@@ -1,14 +1,13 @@
-# In your local verde-health-mvp folder
 cat > .gitignore << 'EOF'
-# CRITICAL - Never commit these
+# Environment variables - NEVER commit these!
 .env
 .env.local
 .env.production
 
-# Dependencies - NEVER commit
+# Dependencies - this folder is huge, never upload it
 node_modules/
 
-# Lock files
+# Lock files (optional but recommended to exclude)
 package-lock.json
 
 # Mac system files
@@ -17,6 +16,5 @@ package-lock.json
 # Vercel
 .vercel
 
-# Optional files
-start.sh
+# Not needed for deployment
 EOF
