@@ -1,160 +1,1166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Verde Health MVP</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: Arial, sans-serif; background: #fafafa; margin: 0; padding: 0; }
-    #main { max-width: 900px; margin: 32px auto; background: #fff; padding: 32px 24px; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); min-height: 520px; }
-    h1 { color: #27ae60; text-align: center; }
-    h2 { color: #2ecc71; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-top: 30px; }
-    .btn { background: #27ae60; color: #fff; padding: 7px 16px; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; margin-right: 8px; }
-    .btn:hover { background: #219150; }
-    .hidden { display: none; }
-    .form-group { margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 24px; background: #fff; border-radius: 10px; overflow: hidden; }
-    th, td { padding: 12px 10px; border-bottom: 1px solid #eee; text-align: left; }
-    th { background: #2ecc71; color: #fff; text-transform: uppercase; font-weight: bold; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verde Health - AI Healthcare Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-green: #27ae60;
+            --secondary-green: #2ecc71;
+            --light-green: #a8e6cf;
+            --dark-green: #1e7e3e;
+            --bg-gradient: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            --shadow: 0 10px 30px rgba(0,0,0,0.1);
+            --shadow-hover: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated background elements */
+        .bg-decoration {
+            position: fixed;
+            border-radius: 50%;
+            background: rgba(46, 204, 113, 0.1);
+            animation: float 20s infinite ease-in-out;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-decoration:nth-child(1) {
+            width: 300px;
+            height: 300px;
+            top: -150px;
+            left: -150px;
+            animation-delay: 0s;
+        }
+
+        .bg-decoration:nth-child(2) {
+            width: 200px;
+            height: 200px;
+            bottom: -100px;
+            right: -100px;
+            animation-delay: 5s;
+        }
+
+        .bg-decoration:nth-child(3) {
+            width: 150px;
+            height: 150px;
+            top: 50%;
+            left: 80%;
+            animation-delay: 10s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            33% { transform: translateY(-30px) rotate(120deg); }
+            66% { transform: translateY(30px) rotate(240deg); }
+        }
+
+        /* Header with Logo */
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark-green);
+            letter-spacing: -0.5px;
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-tab {
+            padding: 10px 24px;
+            background: transparent;
+            border: 2px solid var(--primary-green);
+            color: var(--primary-green);
+            border-radius: 25px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-tab::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--primary-green);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        .nav-tab:hover::before {
+            left: 0;
+        }
+
+        .nav-tab:hover {
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .nav-tab.active {
+            background: var(--primary-green);
+            color: white;
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Card Styles */
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            animation: slideIn 0.5s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* View Sections */
+        .view-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-green);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::after {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(39, 174, 96, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+        }
+
+        /* Patient Table */
+        .patient-table {
+            width: 100%;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+        }
+
+        .patient-table thead {
+            background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+            color: white;
+        }
+
+        .patient-table th {
+            padding: 20px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .patient-table tbody tr {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .patient-table tbody tr:hover {
+            background: #f8f8f8;
+            transform: scale(1.01);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .patient-table td {
+            padding: 18px 15px;
+            font-size: 15px;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-calling {
+            background: #cce5ff;
+            color: #004085;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-complete {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Call Status Display */
+        .call-status {
+            display: none;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            text-align: center;
+            animation: slideIn 0.5s ease;
+        }
+
+        .call-status.active {
+            display: block;
+        }
+
+        .call-status h3 {
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .call-status p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        /* Loading Animation */
+        .loading-dots {
+            display: inline-flex;
+            gap: 5px;
+        }
+
+        .loading-dots span {
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 90%;
+            width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark-green);
+        }
+
+        .modal-close {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 20px;
+        }
+
+        .modal-close:hover {
+            background: #e0e0e0;
+            transform: rotate(90deg);
+        }
+
+        /* PDF Viewer */
+        .pdf-viewer {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .pdf-viewer iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Success/Error Messages */
+        .message {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            animation: slideIn 0.5s ease;
+            display: none;
+        }
+
+        .message.active {
+            display: block;
+        }
+
+        .message.success {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border: 1px solid #b1dfbb;
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            color: #721c24;
+            border: 1px solid #f1b0b7;
+        }
+
+        .message.info {
+            background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+            color: #0c5460;
+            border: 1px solid #abdde5;
+        }
+
+        /* Welcome Animation */
+        @keyframes welcomeAnimation {
+            0% {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .welcome-title {
+            font-size: 32px;
+            color: var(--dark-green);
+            margin-bottom: 10px;
+            animation: welcomeAnimation 0.8s ease;
+        }
+
+        .welcome-subtitle {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .logo-img {
+                width: 50px;
+                height: 50px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .patient-table {
+                font-size: 14px;
+                overflow-x: auto;
+                display: block;
+            }
+
+            .patient-table th,
+            .patient-table td {
+                padding: 12px 8px;
+                font-size: 12px;
+            }
+
+            .modal-content {
+                padding: 20px;
+                width: 95%;
+            }
+
+            .pdf-viewer {
+                height: 400px;
+            }
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f0f0f0;
+            border-top: 4px solid var(--primary-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        .spinner.active {
+            display: block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-  <div id="main">
-    <!-- Navigation -->
-    <div style="text-align:center; margin-bottom:24px;">
-      <button class="btn" id="nav-patient">Patient Side</button>
-      <button class="btn" id="nav-doctor">Doctor Side</button>
+    <!-- Background Decorations -->
+    <div class="bg-decoration"></div>
+    <div class="bg-decoration"></div>
+    <div class="bg-decoration"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <!-- Using base64 encoded version of the Verde Health logo from the provided image -->
+                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMwIDVDMjAgNSAxNSAxMCAxNSAyMEMxNSAyNSAyMCAzMCAyNSAzNUMyNSA0MCAyMCA0NSAxNSA1MEMxNSA1NSAyMCA2MCAzMCA2MEM0MCA2MCA0NSA1NSA0NSA1MEM0NSA0NSA0MCA0MCAzNSAzNUM0MCAzMCA0NSAyNSA0NSAyMEM0NSAxMCA0MCA1IDMwIDVaIiBmaWxsPSIjMjdhZTYwIi8+CjxwYXRoIGQ9Ik0zMCAxNUMyNSAxNSAyMiAyMCAyMiAyNUMyMiAzMCAyNSAzNSAzMCAzNUMzNSAzNSAzOCAzMCAzOCAyNUMzOCAyMCAzNSAxNSAzMCAxNVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPg==" alt="Verde Health Logo" class="logo-img" />
+                <div class="logo-text">Verde Health</div>
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" id="patientTab" onclick="showView('patient')">
+                    Patient Portal
+                </button>
+                <button class="nav-tab" id="doctorTab" onclick="showView('doctor')">
+                    Doctor Portal
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Patient View -->
+        <div id="patientView" class="view-section active">
+            <div class="card">
+                <h1 class="welcome-title">Welcome to Verde Health</h1>
+                <p class="welcome-subtitle">Your AI-powered healthcare assistant is ready to help</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Enter Your Phone Number</label>
+                    <input type="tel" id="phoneInput" class="form-input" placeholder="(555) 123-4567" />
+                    <small style="color: #666; font-size: 14px; margin-top: 5px; display: block;">
+                        We'll call you immediately to conduct your health assessment
+                    </small>
+                </div>
+                
+                <button class="btn" id="activateCallBtn" onclick="activateCall()">
+                    <span>📞</span>
+                    <span>Activate AI Call</span>
+                </button>
+                
+                <div class="call-status" id="callStatus">
+                    <h3>Initiating Call</h3>
+                    <p>Our AI assistant is calling you now. Please answer your phone.</p>
+                    <div class="loading-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+                
+                <div class="message success" id="callSuccess">
+                    ✅ Call completed successfully! Your healthcare provider will review your assessment shortly.
+                </div>
+                
+                <div class="message error" id="callError">
+                    ❌ <span id="errorMessage">Unable to initiate call. Please try again.</span>
+                </div>
+                
+                <div class="message info" id="callInfo">
+                    ℹ️ <span id="infoMessage">Your call is being processed...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doctor Login View -->
+        <div id="doctorLoginView" class="view-section">
+            <div class="card">
+                <h1 class="welcome-title">Doctor Portal</h1>
+                <p class="welcome-subtitle">Access your patient records and SOAP notes</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" id="docUsername" class="form-input" placeholder="Enter username" value="doctor" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="docPassword" class="form-input" placeholder="Enter password" value="password" />
+                </div>
+                
+                <button class="btn" onclick="doctorLogin()">
+                    <span>🔐</span>
+                    <span>Sign In</span>
+                </button>
+                
+                <p style="margin-top: 20px; color: #888; font-size: 14px;">
+                    Demo credentials: doctor / password
+                </p>
+            </div>
+        </div>
+
+        <!-- Doctor Dashboard View -->
+        <div id="doctorDashboard" class="view-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                    <div>
+                        <h1 class="welcome-title">Welcome, Dr. Aaron</h1>
+                        <p class="welcome-subtitle">Patient Management Dashboard</p>
+                    </div>
+                    <div>
+                        <button class="btn btn-secondary" onclick="refreshPatients()">
+                            <span>🔄</span>
+                            <span>Refresh</span>
+                        </button>
+                        <button class="btn btn-danger" onclick="logout()" style="margin-left: 10px;">
+                            <span>🚪</span>
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="spinner" id="loadingSpinner"></div>
+                
+                <table class="patient-table">
+                    <thead>
+                        <tr>
+                            <th>Patient Name</th>
+                            <th>Phone</th>
+                            <th>Age</th>
+                            <th>Call Status</th>
+                            <th>Call Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patientTableBody">
+                        <!-- Patient rows will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <!-- Patient Side -->
-    <div id="patient-view">
-      <h1>Patient Intake</h1>
-      <div class="form-group">
-        <label for="phone">Enter your phone number:</label><br>
-        <input id="phone" type="text" placeholder="Phone #" style="padding:7px;width:220px;margin-top:8px;">
-      </div>
-      <button class="btn" id="activate-call">Activate Call</button>
-      <div id="callResult" style="margin-top:16px;"></div>
+    <!-- PDF Viewer Modal -->
+    <div class="modal" id="pdfModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">SOAP Notes - <span id="patientNameInModal">Patient</span></h2>
+                <button class="modal-close" onclick="closePdfModal()">✕</button>
+            </div>
+            
+            <div class="pdf-viewer">
+                <iframe id="pdfFrame" src=""></iframe>
+            </div>
+            
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn" onclick="downloadCurrentPdf()">
+                    <span>📥</span>
+                    <span>Download PDF</span>
+                </button>
+                <button class="btn btn-secondary" onclick="playRecording()">
+                    <span>🎧</span>
+                    <span>Play Recording</span>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- Doctor Login -->
-    <div id="doctor-login" class="hidden">
-      <h2>Doctor Sign In</h2>
-      <div class="form-group">
-        <label>Username:</label><br>
-        <input type="text" id="doc-username" style="padding:7px;width:180px;">
-      </div>
-      <div class="form-group">
-        <label>Password:</label><br>
-        <input type="password" id="doc-password" style="padding:7px;width:180px;">
-      </div>
-      <div style="font-size: 0.95rem;color:#888;margin-bottom:12px;">
-        Since this is MVP, don't worry about real username/password.<br>
-        When login is pressed, you're taken to Doctor Side.
-      </div>
-      <button class="btn" id="doc-login-btn">Login</button>
-    </div>
+    <script>
+        // Global variables
+        let currentPatients = [];
+        let currentPatientId = null;
+        let currentPdfUrl = null;
+        let currentRecordingUrl = null;
+        let refreshInterval = null;
 
-    <!-- Doctor Side -->
-    <div id="doctor-view" class="hidden">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h1 style="margin-bottom:0;">Welcome Doctor Aaron</h1>
-        <button class="btn" id="add-patient-btn">Add Patient</button>
-      </div>
-      <!-- Patient List Table -->
-      <h2>Patient List</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>FN</th>
-            <th>LN</th>
-            <th>Gender</th>
-            <th>Age</th>
-            <th>Status</th>
-            <th>Call Date & Time</th>
-            <th>Download SOAP</th>
-          </tr>
-        </thead>
-        <tbody id="patients-table">
-          <!-- Fetched patient rows will be inserted here -->
-        </tbody>
-      </table>
-    </div>
-  </div>
+        // View Management
+        function showView(view) {
+            // Hide all views
+            document.querySelectorAll('.view-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show appropriate view and set active tab
+            if (view === 'patient') {
+                document.getElementById('patientView').classList.add('active');
+                document.getElementById('patientTab').classList.add('active');
+                clearInterval(refreshInterval);
+            } else if (view === 'doctor') {
+                document.getElementById('doctorLoginView').classList.add('active');
+                document.getElementById('doctorTab').classList.add('active');
+                clearInterval(refreshInterval);
+            }
+        }
 
-<script>
-  // Navigation
-  const navPatient = document.getElementById("nav-patient");
-  const navDoctor = document.getElementById("nav-doctor");
-  const patientView = document.getElementById("patient-view");
-  const doctorLogin = document.getElementById("doctor-login");
-  const doctorView = document.getElementById("doctor-view");
+        // Patient Side - Activate Vapi Call
+        async function activateCall() {
+            const phoneInput = document.getElementById('phoneInput');
+            const phone = phoneInput.value.replace(/\D/g, ''); // Remove non-digits
+            
+            if (phone.length < 10) {
+                showMessage('error', 'Please enter a valid 10-digit phone number');
+                return;
+            }
+            
+            // Format phone for display
+            const formattedPhone = formatPhoneNumber(phone);
+            
+            // Disable button and show status
+            document.getElementById('activateCallBtn').disabled = true;
+            document.getElementById('callStatus').classList.add('active');
+            hideAllMessages();
+            
+            try {
+                // Call backend to trigger Vapi
+                const response = await fetch('/api/vapi/initiate-call', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phoneNumber: '+1' + phone // Add country code
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    // Update status message
+                    document.querySelector('#callStatus h3').textContent = 'Call Initiated';
+                    document.querySelector('#callStatus p').textContent = `Calling ${formattedPhone}... Please answer your phone.`;
+                    
+                    // Poll for call status
+                    pollCallStatus(data.callId);
+                    
+                } else {
+                    throw new Error(data.error || 'Failed to initiate call');
+                }
+                
+            } catch (error) {
+                console.error('Error activating call:', error);
+                document.getElementById('callStatus').classList.remove('active');
+                showMessage('error', error.message || 'Unable to initiate call. Please try again.');
+                document.getElementById('activateCallBtn').disabled = false;
+            }
+        }
 
-  navPatient.onclick = () => {
-    patientView.style.display = ""; doctorLogin.classList.add("hidden"); doctorView.classList.add("hidden");
-  };
-  navDoctor.onclick = () => {
-    patientView.style.display = "none"; doctorLogin.classList.remove("hidden"); doctorView.classList.add("hidden");
-  };
+        // Poll for call status updates
+        async function pollCallStatus(callId) {
+            let attempts = 0;
+            const maxAttempts = 60; // Poll for up to 5 minutes
+            
+            const pollInterval = setInterval(async () => {
+                attempts++;
+                
+                try {
+                    const response = await fetch(`/api/vapi/call-status/${callId}`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(pollInterval);
+                        document.getElementById('callStatus').classList.remove('active');
+                        showMessage('success', 'Call completed successfully! Your healthcare provider will review your assessment shortly.');
+                        document.getElementById('activateCallBtn').disabled = false;
+                        document.getElementById('phoneInput').value = '';
+                    } else if (data.status === 'failed' || data.status === 'no-answer') {
+                        clearInterval(pollInterval);
+                        document.getElementById('callStatus').classList.remove('active');
+                        showMessage('error', 'Call could not be completed. Please try again.');
+                        document.getElementById('activateCallBtn').disabled = false;
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(pollInterval);
+                        document.getElementById('callStatus').classList.remove('active');
+                        showMessage('info', 'Call is taking longer than expected. We\'ll process it in the background.');
+                        document.getElementById('activateCallBtn').disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Error polling status:', error);
+                }
+            }, 5000); // Poll every 5 seconds
+        }
 
-  // Dummy login for MVP
-  document.getElementById("doc-login-btn").onclick = () => {
-    doctorLogin.classList.add("hidden");
-    doctorView.classList.remove("hidden");
-    loadPatients();
-  };
+        // Doctor Login
+        function doctorLogin() {
+            const username = document.getElementById('docUsername').value;
+            const password = document.getElementById('docPassword').value;
+            
+            // Simple demo authentication
+            if (username && password) {
+                document.getElementById('doctorLoginView').classList.remove('active');
+                document.getElementById('doctorDashboard').classList.add('active');
+                loadPatients();
+                
+                // Set up auto-refresh every 30 seconds
+                refreshInterval = setInterval(loadPatients, 30000);
+            } else {
+                alert('Please enter username and password');
+            }
+        }
 
-  // Activate Call (Patient Side)
-  document.getElementById("activate-call").onclick = async () => {
-    const phone = document.getElementById("phone").value;
-    // MVP logic: fake call activation, could POST to backend
-    if (phone && phone.length >= 7) {
-      document.getElementById("callResult").innerHTML = "Call activated for: " + phone;
-      // Simulate actual backend logic with fetch if needed
-    } else {
-      document.getElementById("callResult").innerHTML = "<span style='color:tomato;'>Invalid phone number.</span>";
-    }
-  };
+        // Logout
+        function logout() {
+            clearInterval(refreshInterval);
+            document.getElementById('doctorDashboard').classList.remove('active');
+            document.getElementById('doctorLoginView').classList.add('active');
+        }
 
-  // Fetch & render patient list (Doctor Side)
-  async function loadPatients() {
-    try {
-      const response = await fetch('/api/sessions');
-      const patients = await response.json();
-      const rows = (Array.isArray(patients) ? patients : []).map((p, i) => `
-        <tr onclick="previewSOAP('${p.soapnotes && p.soapnotes.id ? p.soapnotes.id : ""}')">
-          <td>${p.patient_name || ""}</td>
-          <td>${p.patient_lastname || ""}</td>
-          <td>${p.gender || ""}</td>
-          <td>${p.patient_age || ""}</td>
-          <td>${p.status || ""}</td>
-          <td>${p.call_date || ""} ${p.call_time || ""}</td>
-          <td>
-            ${p.soapnotes && p.soapnotes.pdf_url 
-              ? `<a href="${p.soapnotes.pdf_url}" target="_blank" class="btn">Download</a>` 
-              : `<span style="color:#aaa">N/A</span>`}
-          </td>
-        </tr>
-      `).join("");
-      document.getElementById("patients-table").innerHTML = rows || `<tr><td colspan="7">No patients found.</td></tr>`;
-    } catch (e) {
-      document.getElementById("patients-table").innerHTML = `<tr><td colspan="7" style="color:red;">Error loading patients.</td></tr>`;
-    }
-  }
+        // Load Patients
+        async function loadPatients() {
+            const spinner = document.getElementById('loadingSpinner');
+            const tableBody = document.getElementById('patientTableBody');
+            
+            // Only show spinner if table is empty
+            if (tableBody.children.length === 0) {
+                spinner.classList.add('active');
+            }
+            
+            try {
+                const response = await fetch('/api/sessions');
+                const data = await response.json();
+                
+                currentPatients = data;
+                
+                // Render patients
+                if (data && data.length > 0) {
+                    tableBody.innerHTML = data.map(patient => {
+                        // Determine status
+                        let statusClass = 'status-pending';
+                        let statusText = 'Pending';
+                        
+                        if (patient.status === 'calling') {
+                            statusClass = 'status-calling';
+                            statusText = 'Calling...';
+                        } else if (patient.status === 'completed' && patient.soapnotes) {
+                            statusClass = 'status-complete';
+                            statusText = 'Complete';
+                        } else if (patient.status === 'failed') {
+                            statusClass = 'status-failed';
+                            statusText = 'Failed';
+                        }
+                        
+                        // Format date
+                        const callDate = patient.createdat ? 
+                            new Date(patient.createdat).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            }) : 'N/A';
+                        
+                        // Action buttons
+                        let actions = '';
+                        if (patient.soapnotes && patient.soapnotes.pdf_url) {
+                            actions = `
+                                <button class="btn" style="padding: 8px 16px; font-size: 14px;" 
+                                        onclick="viewSoapPdf('${patient.id}')">
+                                    View SOAP
+                                </button>
+                            `;
+                        } else if (patient.status === 'calling') {
+                            actions = '<span style="color: #007bff;">In Progress...</span>';
+                        } else {
+                            actions = '<span style="color: #999;">Not Available</span>';
+                        }
+                        
+                        return `
+                            <tr onclick="selectPatient('${patient.id}')" style="cursor: pointer;">
+                                <td>${patient.patient_name || 'Unknown'}</td>
+                                <td>${formatPhoneNumber(patient.phonenumber) || 'N/A'}</td>
+                                <td>${patient.patient_age || 'N/A'}</td>
+                                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                                <td>${callDate}</td>
+                                <td onclick="event.stopPropagation()">
+                                    ${actions}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #999;">No patients found. Calls will appear here once initiated.</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading patients:', error);
+                tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #f00;">Error loading patients. Please refresh.</td></tr>';
+            } finally {
+                spinner.classList.remove('active');
+            }
+        }
 
-  // Preview SOAP document: open a new tab with JSON, MVP
-  window.previewSOAP = function(soapId) {
-    if (soapId) window.open(`/api/soap/preview/${soapId}`, "_blank");
-    else alert("SOAP Note not available for this patient.");
-  }
+        // Refresh patients manually
+        function refreshPatients() {
+            loadPatients();
+        }
 
-  // Add Patient Button (MVP)
-  document.getElementById("add-patient-btn").onclick = () => {
-    alert("Add Patient (MVP only): This would open a patient registration flow.");
-  };
+        // Select patient (for future features)
+        function selectPatient(patientId) {
+            const patient = currentPatients.find(p => p.id === patientId);
+            if (patient && patient.soapnotes && patient.soapnotes.pdf_url) {
+                viewSoapPdf(patientId);
+            }
+        }
 
-  // Initial display
-  patientView.style.display = ""; doctorLogin.classList.add("hidden"); doctorView.classList.add("hidden");
-</script>
+        // View SOAP PDF from Vapi
+        async function viewSoapPdf(patientId) {
+            const patient = currentPatients.find(p => p.id === patientId);
+            if (!patient || !patient.soapnotes || !patient.soapnotes.pdf_url) {
+                alert('SOAP notes not available for this patient');
+                return;
+            }
+            
+            currentPatientId = patientId;
+            currentPdfUrl = patient.soapnotes.pdf_url;
+            currentRecordingUrl = patient.vapi_recording_url;
+            
+            // Update modal with patient name
+            document.getElementById('patientNameInModal').textContent = patient.patient_name || 'Unknown Patient';
+            
+            try {
+                // Get signed URL for PDF
+                const response = await fetch(`/api/soap/pdf/${patient.soapnotes.id}`);
+                const data = await response.json();
+                
+                if (data.url) {
+                    // Load PDF in iframe
+                    document.getElementById('pdfFrame').src = data.url;
+                    
+                    // Show modal
+                    document.getElementById('pdfModal').classList.add('active');
+                } else {
+                    throw new Error('PDF URL not available');
+                }
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                alert('Unable to load SOAP notes. Please try again.');
+            }
+        }
+
+        // Close PDF Modal
+        function closePdfModal() {
+            document.getElementById('pdfModal').classList.remove('active');
+            document.getElementById('pdfFrame').src = '';
+        }
+
+        // Download current PDF
+        async function downloadCurrentPdf() {
+            if (currentPdfUrl) {
+                const patient = currentPatients.find(p => p.id === currentPatientId);
+                const fileName = `SOAP_${patient?.patient_name?.replace(/\s/g, '_') || 'Patient'}_${new Date().toISOString().split('T')[0]}.pdf`;
+                
+                // Create download link
+                const a = document.createElement('a');
+                a.href = currentPdfUrl;
+                a.download = fileName;
+                a.target = '_blank';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        }
+
+        // Play call recording
+        async function playRecording() {
+            if (currentRecordingUrl) {
+                // Open recording in new tab (or implement audio player)
+                window.open(currentRecordingUrl, '_blank');
+            } else {
+                alert('Recording not available for this call');
+            }
+        }
+
+        // Utility Functions
+        function formatPhoneNumber(phone) {
+            const cleaned = phone.replace(/\D/g, '');
+            if (cleaned.length === 10) {
+                return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+            }
+            return phone;
+        }
+
+        function showMessage(type, message) {
+            hideAllMessages();
+            
+            if (type === 'error') {
+                document.getElementById('errorMessage').textContent = message;
+                document.getElementById('callError').classList.add('active');
+            } else if (type === 'success') {
+                document.getElementById('callSuccess').classList.add('active');
+            } else if (type === 'info') {
+                document.getElementById('infoMessage').textContent = message;
+                document.getElementById('callInfo').classList.add('active');
+            }
+            
+            // Auto-hide after 10 seconds
+            setTimeout(hideAllMessages, 10000);
+        }
+
+        function hideAllMessages() {
+            document.getElementById('callSuccess').classList.remove('active');
+            document.getElementById('callError').classList.remove('active');
+            document.getElementById('callInfo').classList.remove('active');
+        }
+
+        // Format phone input
+        document.getElementById('phoneInput').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 0) {
+                if (value.length <= 3) {
+                    value = `(${value}`;
+                } else if (value.length <= 6) {
+                    value = `(${value.slice(0, 3)}) ${value.slice(3)}`;
+                } else {
+                    value = `(${value.slice(0, 3)}) ${value.slice(3, 6)}-${value.slice(6, 10)}`;
+                }
+            }
+            e.target.value = value;
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            showView('patient');
+        });
+
+        // Handle Enter key for login
+        document.getElementById('docPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                doctorLogin();
+            }
+        });
+    </script>
 </body>
 </html>

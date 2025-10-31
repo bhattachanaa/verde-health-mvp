@@ -1,20 +1,40 @@
 {
   "name": "verde-health-mvp",
-  "version": "1.0.0",
-  "description": "Verde Health AI Nurse MVP",
+  "version": "3.0.0",
+  "description": "Verde Health AI Healthcare Assistant with Vapi Integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "echo 'No build step required'",
+    "test": "echo 'No tests configured'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0",
-    "axios": "^1.13.1",
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "healthcare",
+    "ai",
+    "soap-notes",
+    "medical",
+    "verde-health",
+    "vapi",
+    "voice-ai"
+  ],
+  "author": "Verde Health Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bhattachanaa/verde-health-mvp"
   }
 }

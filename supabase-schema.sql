@@ -1,28 +1,131 @@
--- Create intakesessions table
-CREATE TABLE IF NOT EXISTS intakesessions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+-- Verde Health MVP Database Schema with Vapi Integration
+-- This creates all necessary tables for the Verde Health application with Vapi support
+
+-- Enable UUID extension if not already enabled
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Drop existing tables if they exist (for clean setup)
+DROP TABLE IF EXISTS soapnotes CASCADE;
+DROP TABLE IF EXISTS intakesessions CASCADE;
+
+-- Create intakesessions table with Vapi fields
+CREATE TABLE intakesessions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   callid TEXT UNIQUE NOT NULL,
+  
+  -- Patient Information
   patient_name TEXT,
   patient_age INTEGER,
   phonenumber TEXT,
-  audio_path TEXT, -- storage file path for audio
-  transcript JSONB,
-  duration INTEGER,
-  createdat TIMESTAMPTZ DEFAULT NOW()
+  gender TEXT,
+  
+  -- Call Status
+  status TEXT DEFAULT 'pending', -- pending, calling, in-progress, completed, failed
+  
+  -- Vapi Integration Fields
+  vapi_call_id TEXT UNIQUE,
+  vapi_assistant_id TEXT,
+  vapi_recording_url TEXT, -- Path to recording in verde-health-bucket
+  
+  -- Call Data
+  transcript JSONB, -- Full transcript from Vapi
+  duration INTEGER, -- Call duration in seconds
+  
+  -- File Storage Paths
+  audio_path TEXT, -- Path in verde-health-bucket
+  
+  -- Timestamps
+  createdat TIMESTAMPTZ DEFAULT NOW(),
+  updatedat TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create soapnotes table
-CREATE TABLE IF NOT EXISTS soapnotes (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+-- Create soapnotes table with Vapi PDF storage
+CREATE TABLE soapnotes (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   sessionid UUID REFERENCES intakesessions(id) ON DELETE CASCADE,
+  
+  -- SOAP Content (if we parse from Vapi)
   subjective TEXT,
   objective TEXT,
   assessment TEXT,
   plan TEXT,
-  pdf_url TEXT, -- storage path or URL of generated PDF document
-  createdat TIMESTAMPTZ DEFAULT NOW()
+  
+  -- Vapi Generated PDF
+  pdf_url TEXT, -- Path to Vapi-generated PDF in verde-health-bucket
+  vapi_generated BOOLEAN DEFAULT false,
+  vapi_metadata JSONB, -- Store any additional Vapi data
+  
+  -- Timestamps
+  createdat TIMESTAMPTZ DEFAULT NOW(),
+  updatedat TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_intakesessions_callid ON intakesessions(callid);
-CREATE INDEX IF NOT EXISTS idx_soapnotes_sessionid ON soapnotes(sessionid);
+-- Create indexes for better performance
+CREATE INDEX idx_intakesessions_callid ON intakesessions(callid);
+CREATE INDEX idx_intakesessions_vapi_call_id ON intakesessions(vapi_call_id);
+CREATE INDEX idx_intakesessions_phonenumber ON intakesessions(phonenumber);
+CREATE INDEX idx_intakesessions_status ON intakesessions(status);
+CREATE INDEX idx_intakesessions_createdat ON intakesessions(createdat DESC);
+CREATE INDEX idx_soapnotes_sessionid ON soapnotes(sessionid);
+CREATE INDEX idx_soapnotes_createdat ON soapnotes(createdat DESC);
+
+-- Create updated_at trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updatedat = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for updatedat columns
+CREATE TRIGGER update_intakesessions_updated_at 
+  BEFORE UPDATE ON intakesessions 
+  FOR EACH ROW 
+  EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_soapnotes_updated_at 
+  BEFORE UPDATE ON soapnotes 
+  FOR EACH ROW 
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Create RLS (Row Level Security) policies
+ALTER TABLE intakesessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE soapnotes ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for public access (adjust for production)
+CREATE POLICY "Enable read access for all users" ON intakesessions
+  FOR SELECT USING (true);
+
+CREATE POLICY "Enable insert for all users" ON intakesessions
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Enable update for all users" ON intakesessions
+  FOR UPDATE USING (true);
+
+CREATE POLICY "Enable delete for all users" ON intakesessions
+  FOR DELETE USING (true);
+
+CREATE POLICY "Enable read access for all users" ON soapnotes
+  FOR SELECT USING (true);
+
+CREATE POLICY "Enable insert for all users" ON soapnotes
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Enable update for all users" ON soapnotes
+  FOR UPDATE USING (true);
+
+CREATE POLICY "Enable delete for all users" ON soapnotes
+  FOR DELETE USING (true);
+
+-- Grant permissions (adjust based on your Supabase setup)
+GRANT ALL ON intakesessions TO anon;
+GRANT ALL ON intakesessions TO authenticated;
+GRANT ALL ON soapnotes TO anon;
+GRANT ALL ON soapnotes TO authenticated;
+
+-- Create storage bucket structure (run these in Supabase Storage UI)
+-- Bucket name: verde-health-bucket
+-- Folders:
+--   /vapi_recordings/ - for call recordings from Vapi
+--   /vapi_soaps/ - for SOAP PDFs generated by Vapi
