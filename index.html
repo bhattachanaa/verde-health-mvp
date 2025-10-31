@@ -72,70 +72,75 @@
         <div id="soapNotes"></div>
     </div>
 
-    <script>
-        const API_URL = window.location.origin;        
-        async function startCall() {
-            const phoneNumber = document.getElementById('phoneNumber').value;
-            if (!phoneNumber) {
-                alert('Please enter a phone number');
-                return;
+   <script>
+    async function startCall() {
+        const phoneNumber = document.getElementById('phoneNumber').value;
+        if (!phoneNumber) {
+            alert('Please enter a phone number');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/calls/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phoneNumber })
+            });
+            const data = await response.json();
+            document.getElementById('callStatus').innerHTML = 
+                `<p style="color: green;">✓ Call initiated to ${phoneNumber}</p>`;
+        } catch (error) {
+            document.getElementById('callStatus').innerHTML = 
+                `<p style="color: red;">✗ Error: ${error.message}</p>`;
+        }
+    }
+    
+    async function loadSOAPNotes() {
+        try {
+            const response = await fetch('/api/soap');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            try {
-                const response = await fetch(`${API_URL}/api/calls/start`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phoneNumber })
-                });
-                const data = await response.json();
-                document.getElementById('callStatus').innerHTML = 
-                    `<p style="color: green;">✓ Call initiated to ${phoneNumber}</p>`;
-            } catch (error) {
-                document.getElementById('callStatus').innerHTML = 
-                    `<p style="color: red;">✗ Error: ${error.message}</p>`;
-            }
-        }
-        
-        async function loadSOAPNotes() {
-            try {
-                const response = await fetch(`${API_URL}/api/soap`);
-                const notes = await response.json();
-                
-                const notesHtml = notes.map(note => `
-                    <div class="soap-note">
-                        <h3>📞 ${note.intake_sessions?.phone_number || 'Unknown'} - ${new Date(note.created_at).toLocaleString()}</h3>
-                        
-                        <div class="soap-section">
-                            <h3>S - Subjective:</h3>
-                            <p>${note.subjective}</p>
-                        </div>
-                        
-                        <div class="soap-section">
-                            <h3>O - Objective:</h3>
-                            <p>${note.objective}</p>
-                        </div>
-                        
-                        <div class="soap-section">
-                            <h3>A - Assessment:</h3>
-                            <p>${note.assessment}</p>
-                        </div>
-                        
-                        <div class="soap-section">
-                            <h3>P - Plan:</h3>
-                            <p>${note.plan}</p>
-                        </div>
+            const notes = await response.json();
+            
+            const notesHtml = notes.map(note => `
+                <div class="soap-note">
+                    <h3>📞 ${note.intake_sessions?.phone_number || 'Unknown'} - ${new Date(note.created_at).toLocaleString()}</h3>
+                    
+                    <div class="soap-section">
+                        <h3>S - Subjective:</h3>
+                        <p>${note.subjective}</p>
                     </div>
-                `).join('');
-                
-                document.getElementById('soapNotes').innerHTML = notesHtml || '<p>No SOAP notes yet</p>';
-            } catch (error) {
-                document.getElementById('soapNotes').innerHTML = 
-                    `<p style="color: red;">Error loading notes: ${error.message}</p>`;
-            }
+                    
+                    <div class="soap-section">
+                        <h3>O - Objective:</h3>
+                        <p>${note.objective}</p>
+                    </div>
+                    
+                    <div class="soap-section">
+                        <h3>A - Assessment:</h3>
+                        <p>${note.assessment}</p>
+                    </div>
+                    
+                    <div class="soap-section">
+                        <h3>P - Plan:</h3>
+                        <p>${note.plan}</p>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('soapNotes').innerHTML = notesHtml || '<p>No SOAP notes yet</p>';
+        } catch (error) {
+            document.getElementById('soapNotes').innerHTML = 
+                `<p style="color: red;">Error loading notes: ${error.message}</p>`;
+            console.error('Error details:', error);
         }
-        
-        // Load notes on page load
-        loadSOAPNotes();
-    </script>
+    }
+    
+    // Load notes on page load
+    loadSOAPNotes();
+</script>
 </body>
 </html>
