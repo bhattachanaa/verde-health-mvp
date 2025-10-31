@@ -19,6 +19,7 @@ const supabase = createClient(
 // Vapi configuration
 const VAPI_API_KEY = process.env.VAPI_API_KEY;
 const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID;
+const VAPI_PHONE_NUMBER_ID = process.env.VAPI_PHONE_NUMBER_ID;
 const VAPI_BASE_URL = 'https://api.vapi.ai';
 
 // Helper function to generate unique IDs
@@ -138,13 +139,22 @@ app.post("/api/vapi/initiate-call", async (req, res) => {
       return res.status(500).json({ error: "Failed to create session" });
     }
 
+    // Format phone number (ensure it has country code)
+    let formattedPhone = phoneNumber;
+    if (!formattedPhone.startsWith('+')) {
+      // Assume US number if no country code
+      const cleaned = formattedPhone.replace(/\D/g, '');
+      formattedPhone = '+1' + cleaned;
+    }
+
     // Trigger Vapi outbound call
     const vapiResponse = await axios.post(
-      `${VAPI_BASE_URL}/call`,
+      `${VAPI_BASE_URL}/call/phone`,
       {
+        phoneNumberId: VAPI_PHONE_NUMBER_ID, // Your Vapi phone number to call FROM
         assistantId: VAPI_ASSISTANT_ID,
         customer: {
-          number: phoneNumber
+          number: formattedPhone // Customer phone to call TO
         },
         assistantOverrides: {
           firstMessage: "Hello! This is Verde Health's AI assistant. I'm calling to help with your medical intake assessment. Is now a good time to talk?",
