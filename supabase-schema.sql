@@ -1,24 +1,28 @@
--- Create intake_sessions table
-CREATE TABLE intake_sessions (
+-- Create intakesessions table
+CREATE TABLE IF NOT EXISTS intakesessions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  call_id TEXT UNIQUE NOT NULL,
-  phone_number TEXT,
+  callid TEXT UNIQUE NOT NULL,
+  patient_name TEXT,
+  patient_age INTEGER,
+  phonenumber TEXT,
+  audio_path TEXT, -- storage file path for audio
   transcript JSONB,
   duration INTEGER,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  createdat TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create SOAP notes table
-CREATE TABLE soap_notes (
+-- Create soapnotes table
+CREATE TABLE IF NOT EXISTS soapnotes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  session_id UUID REFERENCES intake_sessions(id) ON DELETE CASCADE,
+  sessionid UUID REFERENCES intakesessions(id) ON DELETE CASCADE,
   subjective TEXT,
   objective TEXT,
   assessment TEXT,
   plan TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  pdf_url TEXT, -- storage path or URL of generated PDF document
+  createdat TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create indexes for better performance
-CREATE INDEX idx_intake_sessions_call_id ON intake_sessions(call_id);
-CREATE INDEX idx_soap_notes_session_id ON soap_notes(session_id);
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_intakesessions_callid ON intakesessions(callid);
+CREATE INDEX IF NOT EXISTS idx_soapnotes_sessionid ON soapnotes(sessionid);
