@@ -1,119 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Verde Health - Patients & SOAP Notes</title>
+  <meta charset="UTF-8">
+  <title>Verde Health MVP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 20px auto;
-      background: #fafafa;
-      padding: 20px;
-      color: #333;
-    }
-    h1 {
-      color: #27ae60;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      background: white;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    th, td {
-      padding: 12px 15px;
-      border-bottom: 1px solid #eee;
-      text-align: left;
-    }
-    th {
-      background: #2ecc71;
-      color: white;
-      text-transform: uppercase;
-      font-weight: bold;
-    }
-    button {
-      padding: 6px 12px;
-      border: none;
-      background: #27ae60;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-      font-size: 0.9rem;
-    }
-    button:hover {
-      background: #219150;
-    }
-    a.button-link {
-      text-decoration: none;
-    }
+    body { font-family: Arial, sans-serif; background: #fafafa; margin: 0; padding: 0; }
+    #main { max-width: 900px; margin: 32px auto; background: #fff; padding: 32px 24px; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); min-height: 520px; }
+    h1 { color: #27ae60; text-align: center; }
+    h2 { color: #2ecc71; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-top: 30px; }
+    .btn { background: #27ae60; color: #fff; padding: 7px 16px; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; margin-right: 8px; }
+    .btn:hover { background: #219150; }
+    .hidden { display: none; }
+    .form-group { margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 24px; background: #fff; border-radius: 10px; overflow: hidden; }
+    th, td { padding: 12px 10px; border-bottom: 1px solid #eee; text-align: left; }
+    th { background: #2ecc71; color: #fff; text-transform: uppercase; font-weight: bold; }
   </style>
 </head>
 <body>
-  <h1>Verde Health - Patient Sessions</h1>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Age</th>
-        <th>Phone</th>
-        <th>Preview</th>
-        <th>Download</th>
-      </tr>
-    </thead>
-    <tbody id="patientsBody"></tbody>
-  </table>
+  <div id="main">
+    <!-- Navigation -->
+    <div style="text-align:center; margin-bottom:24px;">
+      <button class="btn" id="nav-patient">Patient Side</button>
+      <button class="btn" id="nav-doctor">Doctor Side</button>
+    </div>
 
-  <script>
-    async function loadSessions() {
-      try {
-        const response = await fetch("/api/sessions");
-        if (!response.ok) throw new Error(`Failed to load sessions: ${response.status}`);
+    <!-- Patient Side -->
+    <div id="patient-view">
+      <h1>Patient Intake</h1>
+      <div class="form-group">
+        <label for="phone">Enter your phone number:</label><br>
+        <input id="phone" type="text" placeholder="Phone #" style="padding:7px;width:220px;margin-top:8px;">
+      </div>
+      <button class="btn" id="activate-call">Activate Call</button>
+      <div id="callResult" style="margin-top:16px;"></div>
+    </div>
 
-        const sessions = await response.json();
+    <!-- Doctor Login -->
+    <div id="doctor-login" class="hidden">
+      <h2>Doctor Sign In</h2>
+      <div class="form-group">
+        <label>Username:</label><br>
+        <input type="text" id="doc-username" style="padding:7px;width:180px;">
+      </div>
+      <div class="form-group">
+        <label>Password:</label><br>
+        <input type="password" id="doc-password" style="padding:7px;width:180px;">
+      </div>
+      <div style="font-size: 0.95rem;color:#888;margin-bottom:12px;">
+        Since this is MVP, don't worry about real username/password.<br>
+        When login is pressed, you're taken to Doctor Side.
+      </div>
+      <button class="btn" id="doc-login-btn">Login</button>
+    </div>
 
-        if (sessions.length === 0) {
-          document.getElementById("patientsBody").innerHTML = '<tr><td colspan="5">No sessions found.</td></tr>';
-          return;
-        }
-
-        const rows = sessions.map(session => `
+    <!-- Doctor Side -->
+    <div id="doctor-view" class="hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h1 style="margin-bottom:0;">Welcome Doctor Aaron</h1>
+        <button class="btn" id="add-patient-btn">Add Patient</button>
+      </div>
+      <!-- Patient List Table -->
+      <h2>Patient List</h2>
+      <table>
+        <thead>
           <tr>
-            <td>${session.patient_name || "Unknown"}</td>
-            <td>${session.patient_age || "N/A"}</td>
-            <td>${session.phonenumber || "N/A"}</td>
-            <td>
-              <button onclick="previewSOAP('${session.soapnotes ? session.soapnotes.id : ''}')"
-               ${!session.soapnotes ? 'disabled' : ''}>Preview</button>
-            </td>
-            <td>
-              ${session.soapnotes && session.soapnotes.pdf_url ? 
-                `<a href="${session.soapnotes.pdf_url}" target="_blank" class="button-link" download>
-                  <button>Download</button>
-                </a>` 
-                : 'N/A'}
-            </td>
+            <th>FN</th>
+            <th>LN</th>
+            <th>Gender</th>
+            <th>Age</th>
+            <th>Status</th>
+            <th>Call Date & Time</th>
+            <th>Download SOAP</th>
           </tr>
-        `).join("");
+        </thead>
+        <tbody id="patients-table">
+          <!-- Fetched patient rows will be inserted here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-        document.getElementById("patientsBody").innerHTML = rows;
-      } catch (error) {
-        console.error(error);
-        document.getElementById("patientsBody").innerHTML = `<tr><td colspan="5" style="color:red;">${error.message}</td></tr>`;
-      }
+<script>
+  // Navigation
+  const navPatient = document.getElementById("nav-patient");
+  const navDoctor = document.getElementById("nav-doctor");
+  const patientView = document.getElementById("patient-view");
+  const doctorLogin = document.getElementById("doctor-login");
+  const doctorView = document.getElementById("doctor-view");
+
+  navPatient.onclick = () => {
+    patientView.style.display = ""; doctorLogin.classList.add("hidden"); doctorView.classList.add("hidden");
+  };
+  navDoctor.onclick = () => {
+    patientView.style.display = "none"; doctorLogin.classList.remove("hidden"); doctorView.classList.add("hidden");
+  };
+
+  // Dummy login for MVP
+  document.getElementById("doc-login-btn").onclick = () => {
+    doctorLogin.classList.add("hidden");
+    doctorView.classList.remove("hidden");
+    loadPatients();
+  };
+
+  // Activate Call (Patient Side)
+  document.getElementById("activate-call").onclick = async () => {
+    const phone = document.getElementById("phone").value;
+    // MVP logic: fake call activation, could POST to backend
+    if (phone && phone.length >= 7) {
+      document.getElementById("callResult").innerHTML = "Call activated for: " + phone;
+      // Simulate actual backend logic with fetch if needed
+    } else {
+      document.getElementById("callResult").innerHTML = "<span style='color:tomato;'>Invalid phone number.</span>";
     }
+  };
 
-    function previewSOAP(soapId) {
-      if (!soapId) return alert("SOAP Note not available for this session.");
-      // For now open new tab with JSON details, can be enhanced with modal or PDF viewer
-      window.open(`/api/soap/preview/${soapId}`, "_blank");
+  // Fetch & render patient list (Doctor Side)
+  async function loadPatients() {
+    try {
+      const response = await fetch('/api/sessions');
+      const patients = await response.json();
+      const rows = (Array.isArray(patients) ? patients : []).map((p, i) => `
+        <tr onclick="previewSOAP('${p.soapnotes && p.soapnotes.id ? p.soapnotes.id : ""}')">
+          <td>${p.patient_name || ""}</td>
+          <td>${p.patient_lastname || ""}</td>
+          <td>${p.gender || ""}</td>
+          <td>${p.patient_age || ""}</td>
+          <td>${p.status || ""}</td>
+          <td>${p.call_date || ""} ${p.call_time || ""}</td>
+          <td>
+            ${p.soapnotes && p.soapnotes.pdf_url 
+              ? `<a href="${p.soapnotes.pdf_url}" target="_blank" class="btn">Download</a>` 
+              : `<span style="color:#aaa">N/A</span>`}
+          </td>
+        </tr>
+      `).join("");
+      document.getElementById("patients-table").innerHTML = rows || `<tr><td colspan="7">No patients found.</td></tr>`;
+    } catch (e) {
+      document.getElementById("patients-table").innerHTML = `<tr><td colspan="7" style="color:red;">Error loading patients.</td></tr>`;
     }
+  }
 
-    window.onload = loadSessions;
-  </script>
+  // Preview SOAP document: open a new tab with JSON, MVP
+  window.previewSOAP = function(soapId) {
+    if (soapId) window.open(`/api/soap/preview/${soapId}`, "_blank");
+    else alert("SOAP Note not available for this patient.");
+  }
+
+  // Add Patient Button (MVP)
+  document.getElementById("add-patient-btn").onclick = () => {
+    alert("Add Patient (MVP only): This would open a patient registration flow.");
+  };
+
+  // Initial display
+  patientView.style.display = ""; doctorLogin.classList.add("hidden"); doctorView.classList.add("hidden");
+</script>
 </body>
 </html>
