@@ -4,6 +4,7 @@ require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
 const path = require("path");
 const fs = require("fs");
+const axios = require("axios"); // for HTTP requests to vapi
 
 const app = express();
 app.use(cors());
@@ -112,6 +113,33 @@ app.get("/api/soap/preview/:id", async (req, res) => {
   } catch (err) {
     console.error("Unexpected error in /api/soap/preview/:id:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// API to activate phone call via Vapi
+app.post("/api/start-call", async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) return res.status(400).json({ error: "Phone number required" });
+
+  try {
+    // Example Vapi call initiation POST request
+    const vapiUrl = process.env.VAPI_API_URL; // e.g. https://api.vapi.ai/call/start
+    const vapiKey = process.env.VAPI_API_KEY;
+
+    // The body payload will depend on Vapi API doc
+    const payload = {
+      to: phone,
+      // Include additional params required by your Vapi setup, e.g., caller ID, flow ID
+    };
+
+    const response = await axios.post(vapiUrl, payload, {
+      headers: { "Authorization": `Bearer ${vapiKey}` }
+    });
+
+    res.json({ success: true, data: response.data });
+  } catch (error) {
+    console.error("Vapi call error:", error.response ? error.response.data : error.message);
+    res.status(500).json({ error: "Failed to start call", details: error.message });
   }
 });
 
