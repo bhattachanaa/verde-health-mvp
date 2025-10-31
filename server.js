@@ -6,8 +6,20 @@ const axios = require("axios");
 const path = require("path");
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// CORS configuration - MUST come first
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Body parsing middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.text());
+
+// Serve static files
 app.use(express.static("public"));
 
 // Initialize Supabase client
@@ -39,12 +51,15 @@ function formatPhoneNumber(phone) {
 // Download file from URL
 async function downloadFile(url) {
   try {
+    console.log('Downloading file from:', url);
     const response = await axios.get(url, {
-      responseType: 'arraybuffer'
+      responseType: 'arraybuffer',
+      timeout: 30000
     });
+    console.log('File downloaded successfully, size:', response.data.length);
     return Buffer.from(response.data);
   } catch (error) {
-    console.error('Error downloading file:', error);
+    console.error('Error downloading file:', error.message);
     return null;
   }
 }
@@ -52,16 +67,14 @@ async function downloadFile(url) {
 // Store PDF in Supabase bucket
 async function storePdfInBucket(pdfUrl, callId) {
   try {
-    // Download PDF from Vapi
+    console.log('Storing PDF from URL:', pdfUrl);
     const pdfBuffer = await downloadFile(pdfUrl);
     if (!pdfBuffer) {
       throw new Error('Failed to download PDF');
     }
 
-    // Generate file path
     const fileName = `vapi_soaps/call_${callId}_${Date.now()}.pdf`;
     
-    // Upload to Supabase storage
     const { data, error } = await supabase.storage
       .from("verde-health-bucket")
       .upload(fileName, pdfBuffer, {
@@ -69,9 +82,7 @@ async function storePdfInBucket(pdfUrl, callId) {
         upsert: true
       });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     console.log('PDF stored successfully:', fileName);
     return fileName;
@@ -84,16 +95,14 @@ async function storePdfInBucket(pdfUrl, callId) {
 // Store recording in Supabase bucket
 async function storeRecordingInBucket(recordingUrl, callId) {
   try {
-    // Download recording from Vapi
+    console.log('Storing recording from URL:', recordingUrl);
     const recordingBuffer = await downloadFile(recordingUrl);
     if (!recordingBuffer) {
       throw new Error('Failed to download recording');
     }
 
-    // Generate file path
     const fileName = `vapi_recordings/call_${callId}_${Date.now()}.mp3`;
     
-    // Upload to Supabase storage
     const { data, error } = await supabase.storage
       .from("verde-health-bucket")
       .upload(fileName, recordingBuffer, {
@@ -101,9 +110,7 @@ async function storeRecordingInBucket(recordingUrl, callId) {
         upsert: true
       });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     console.log('Recording stored successfully:', fileName);
     return fileName;
@@ -112,6 +119,183 @@ async function storeRecordingInBucket(recordingUrl, callId) {
     return null;
   }
 }
+
+// Handle OPTIONS requests for CORS preflight
+app.options('/api/vapi/webhook', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.status(200).send();
+});
+
+// API: Vapi Webhook Handler - NO AUTHENTICATION REQUIRED
+app.post("/api/vapi/webhook", async (req, res) => {
+  try {
+    // Log everything for debugging
+    console.log('===========================================');
+    console.log('VAPI WEBHOOK RECEIVED AT:', new Date().toISOString());
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('===========================================');
+
+    // Immediately respond to Vapi to avoid timeout
+    res.status(200).json({ received: true, timestamp: new Date().toISOString() });
+
+    // Process webhook asynchronously
+    const { message } = req.body;
+    
+    if (!message) {
+      console.log('No message object in webhook payload');
+      return;
+    }
+
+    const { type, call, transcript, analysis, recordingUrl, endedReason, summary } = message;
+    
+    console.log('Webhook type:', type);
+    console.log('Call ID:', call?.id);
+
+    // Handle different webhook types
+    if (type === 'end-of-call-report') {
+      console.log('Processing end-of-call-report');
+      
+      if (!call || !call.id) {
+        console.error('No call ID in end-of-call-report');
+        return;
+      }
+
+      // Find the session by vapi_call_id
+      const { data: sessions, error: findError } = await supabase
+        .from("intakesessions")
+        .select("*")
+        .eq("vapi_call_id", call.id);
+
+      console.log('Found sessions:', sessions?.length || 0);
+
+      if (!sessions || sessions.length === 0) {
+        // Try fallback - find most recent "calling" session
+        console.log('Trying fallback to find session by status...');
+        const { data: fallbackSessions } = await supabase
+          .from("intakesessions")
+          .select("*")
+          .eq("status", "calling")
+          .order("createdat", { ascending: false })
+          .limit(1);
+
+        if (fallbackSessions && fallbackSessions.length > 0) {
+          console.log('Found session using fallback method');
+          sessions.push(fallbackSessions[0]);
+        } else {
+          console.error('No session found for call:', call.id);
+          return;
+        }
+      }
+
+      const session = sessions[0];
+      console.log('Processing session:', session.id);
+
+      // Extract patient information
+      const patientName = 
+        summary?.patientName ||
+        analysis?.patientName ||
+        transcript?.[0]?.customer?.name ||
+        call?.customer?.name ||
+        "Patient Name Not Captured";
+
+      const patientAge = 
+        summary?.patientAge ||
+        analysis?.patientAge ||
+        null;
+
+      console.log('Patient info - Name:', patientName, 'Age:', patientAge);
+
+      // Process recording if available
+      let recordingPath = null;
+      if (recordingUrl) {
+        console.log('Recording URL found:', recordingUrl);
+        recordingPath = await storeRecordingInBucket(recordingUrl, call.id);
+      }
+
+      // Process SOAP PDF if available
+      let pdfPath = null;
+      const pdfUrl = 
+        summary?.soapNotePdfUrl ||
+        analysis?.soapNotePdfUrl ||
+        call?.artifacts?.soapNotePdfUrl;
+
+      if (pdfUrl) {
+        console.log('SOAP PDF URL found:', pdfUrl);
+        pdfPath = await storePdfInBucket(pdfUrl, call.id);
+      }
+
+      // Update the session with call results
+      const { data: updateData, error: updateError } = await supabase
+        .from("intakesessions")
+        .update({
+          patient_name: patientName,
+          patient_age: patientAge ? parseInt(patientAge) : null,
+          vapi_recording_url: recordingPath,
+          transcript: transcript || null,
+          duration: call?.duration || null,
+          status: "completed",
+          updatedat: new Date().toISOString()
+        })
+        .eq("id", session.id)
+        .select();
+
+      if (updateError) {
+        console.error('Error updating session:', updateError);
+      } else {
+        console.log('Session updated successfully:', updateData);
+      }
+
+      // Create SOAP note if PDF was stored
+      if (pdfPath) {
+        const { data: soapData, error: soapError } = await supabase
+          .from("soapnotes")
+          .insert({
+            sessionid: session.id,
+            pdf_url: pdfPath,
+            vapi_generated: true,
+            vapi_metadata: {
+              call_id: call.id,
+              summary: summary || {},
+              analysis: analysis || {}
+            },
+            createdat: new Date().toISOString()
+          })
+          .select();
+
+        if (soapError) {
+          console.error('Error creating SOAP note:', soapError);
+        } else {
+          console.log('SOAP note created successfully:', soapData);
+        }
+      }
+
+      console.log('Call processing completed for:', call.id);
+      
+    } else if (type === 'status-update') {
+      console.log('Status update:', message.status);
+      
+      if (message.status === 'ended' && call?.id) {
+        // Update session status to show call ended
+        await supabase
+          .from("intakesessions")
+          .update({
+            status: "call-ended",
+            updatedat: new Date().toISOString()
+          })
+          .eq("vapi_call_id", call.id);
+      }
+    } else {
+      console.log('Unhandled webhook type:', type);
+    }
+
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    // Don't re-throw - we already responded to Vapi
+  }
+});
 
 // API: Initiate Vapi Call
 app.post("/api/vapi/initiate-call", async (req, res) => {
@@ -122,7 +306,16 @@ app.post("/api/vapi/initiate-call", async (req, res) => {
       return res.status(400).json({ error: "Phone number is required" });
     }
 
-    // Create intake session in database first
+    // Format phone number with country code
+    let formattedPhone = phoneNumber;
+    if (!formattedPhone.startsWith('+')) {
+      const cleaned = formattedPhone.replace(/\D/g, '');
+      formattedPhone = '+1' + cleaned;
+    }
+
+    console.log('Initiating call to:', formattedPhone);
+
+    // Create intake session first
     const { data: session, error: sessionError } = await supabase
       .from("intakesessions")
       .insert({
@@ -139,217 +332,65 @@ app.post("/api/vapi/initiate-call", async (req, res) => {
       return res.status(500).json({ error: "Failed to create session" });
     }
 
-    // Format phone number (ensure it has country code)
-    let formattedPhone = phoneNumber;
-    if (!formattedPhone.startsWith('+')) {
-      // Assume US number if no country code
-      const cleaned = formattedPhone.replace(/\D/g, '');
-      formattedPhone = '+1' + cleaned;
-    }
+    console.log('Session created:', session.id);
 
     // Trigger Vapi outbound call
-    const vapiResponse = await axios.post(
-      `${VAPI_BASE_URL}/call/phone`,
-      {
-        phoneNumberId: VAPI_PHONE_NUMBER_ID, // Your Vapi phone number to call FROM
-        assistantId: VAPI_ASSISTANT_ID,
-        customer: {
-          number: formattedPhone // Customer phone to call TO
-        },
-        assistantOverrides: {
-          firstMessage: "Hello! This is Verde Health's AI assistant. I'm calling to help with your medical intake assessment. Is now a good time to talk?",
-          model: {
-            provider: "openai",
-            model: "gpt-4",
-            temperature: 0.7
+    try {
+      const vapiResponse = await axios.post(
+        `${VAPI_BASE_URL}/call/phone`,
+        {
+          phoneNumberId: VAPI_PHONE_NUMBER_ID,
+          assistantId: VAPI_ASSISTANT_ID,
+          customer: {
+            number: formattedPhone
+          },
+          metadata: {
+            sessionId: session.id
           }
         },
-        metadata: {
-          sessionId: session.id,
-          timestamp: new Date().toISOString()
-        }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${VAPI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    // Update session with Vapi call ID
-    await supabase
-      .from("intakesessions")
-      .update({
-        vapi_call_id: vapiResponse.data.id,
-        vapi_assistant_id: VAPI_ASSISTANT_ID
-      })
-      .eq("id", session.id);
-
-    console.log('Vapi call initiated:', vapiResponse.data.id);
-
-    res.json({ 
-      success: true, 
-      callId: vapiResponse.data.id,
-      sessionId: session.id,
-      message: "Call initiated successfully" 
-    });
-
-  } catch (error) {
-    console.error("Error initiating Vapi call:", error.response?.data || error.message);
-    res.status(500).json({ 
-      error: error.response?.data?.message || "Failed to initiate call" 
-    });
-  }
-});
-
-// API: Vapi Webhook Handler
-app.post("/api/vapi/webhook", async (req, res) => {
-  try {
-    const { 
-      type, 
-      call,
-      messages,
-      recordingUrl,
-      transcript,
-      analysis,
-      artifacts
-    } = req.body;
-
-    console.log('Vapi webhook received:', type);
-
-    // Handle different webhook types
-    switch (type) {
-      case 'call.started':
-        // Update session status
-        if (call?.metadata?.sessionId) {
-          await supabase
-            .from("intakesessions")
-            .update({
-              status: "in-progress",
-              vapi_call_id: call.id
-            })
-            .eq("id", call.metadata.sessionId);
-        }
-        break;
-
-      case 'call.ended':
-      case 'call-ended': // Handle both formats
-        // Process completed call
-        if (call?.metadata?.sessionId || call?.customerId) {
-          // Find session by Vapi call ID
-          const { data: sessions } = await supabase
-            .from("intakesessions")
-            .select("*")
-            .eq("vapi_call_id", call.id)
-            .single();
-
-          const sessionId = sessions?.id || call.metadata?.sessionId;
-
-          if (sessionId) {
-            // Extract patient information from call analysis
-            const patientName = analysis?.patientName || 
-                              call.analysis?.patientName || 
-                              "Unknown Patient";
-            const patientAge = analysis?.patientAge || 
-                             call.analysis?.patientAge || 
-                             null;
-
-            // Store recording if available
-            let recordingPath = null;
-            if (recordingUrl) {
-              recordingPath = await storeRecordingInBucket(recordingUrl, call.id);
-            }
-
-            // Store SOAP PDF if available
-            let pdfPath = null;
-            if (artifacts?.soapNotePdfUrl) {
-              pdfPath = await storePdfInBucket(artifacts.soapNotePdfUrl, call.id);
-            } else if (analysis?.soapPdfUrl) {
-              pdfPath = await storePdfInBucket(analysis.soapPdfUrl, call.id);
-            }
-
-            // Update intake session
-            const { error: updateError } = await supabase
-              .from("intakesessions")
-              .update({
-                patient_name: patientName,
-                patient_age: patientAge ? parseInt(patientAge) : null,
-                vapi_recording_url: recordingPath,
-                transcript: transcript || messages || null,
-                duration: call.duration || null,
-                status: "completed",
-                updatedat: new Date().toISOString()
-              })
-              .eq("id", sessionId);
-
-            if (updateError) {
-              console.error("Error updating session:", updateError);
-            }
-
-            // Create SOAP note record if PDF was generated
-            if (pdfPath) {
-              const { error: soapError } = await supabase
-                .from("soapnotes")
-                .insert({
-                  sessionid: sessionId,
-                  pdf_url: pdfPath,
-                  vapi_generated: true,
-                  vapi_metadata: {
-                    call_id: call.id,
-                    analysis: analysis || call.analysis || {},
-                    artifacts: artifacts || {}
-                  },
-                  createdat: new Date().toISOString()
-                });
-
-              if (soapError) {
-                console.error("Error creating SOAP note:", soapError);
-              }
-            }
-
-            console.log('Call completed and processed:', call.id);
+        {
+          headers: {
+            'Authorization': `Bearer ${VAPI_API_KEY}`,
+            'Content-Type': 'application/json'
           }
         }
-        break;
+      );
 
-      case 'call.failed':
-      case 'call-failed':
-        // Handle failed calls
-        if (call?.metadata?.sessionId) {
-          await supabase
-            .from("intakesessions")
-            .update({
-              status: "failed",
-              updatedat: new Date().toISOString()
-            })
-            .eq("id", call.metadata.sessionId);
-        }
-        break;
+      console.log('Vapi call initiated:', vapiResponse.data.id);
 
-      case 'transcript':
-      case 'transcript-complete':
-        // Handle transcript updates
-        if (call?.metadata?.sessionId && transcript) {
-          await supabase
-            .from("intakesessions")
-            .update({
-              transcript: transcript,
-              updatedat: new Date().toISOString()
-            })
-            .eq("id", call.metadata.sessionId);
-        }
-        break;
+      // Update session with Vapi call ID
+      await supabase
+        .from("intakesessions")
+        .update({
+          vapi_call_id: vapiResponse.data.id,
+          vapi_assistant_id: VAPI_ASSISTANT_ID
+        })
+        .eq("id", session.id);
 
-      default:
-        console.log('Unhandled webhook type:', type);
+      res.json({ 
+        success: true, 
+        callId: vapiResponse.data.id,
+        sessionId: session.id,
+        message: "Call initiated successfully" 
+      });
+
+    } catch (vapiError) {
+      console.error("Vapi API error:", vapiError.response?.data || vapiError.message);
+      
+      // Update session to failed
+      await supabase
+        .from("intakesessions")
+        .update({ status: "failed" })
+        .eq("id", session.id);
+
+      res.status(500).json({ 
+        error: vapiError.response?.data?.message || "Failed to initiate call" 
+      });
     }
 
-    res.json({ received: true });
-
   } catch (error) {
-    console.error("Error processing Vapi webhook:", error);
-    res.status(500).json({ error: "Webhook processing failed" });
+    console.error("Error in initiate-call:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -358,7 +399,6 @@ app.get("/api/vapi/call-status/:callId", async (req, res) => {
   try {
     const { callId } = req.params;
 
-    // Get session by Vapi call ID
     const { data: session, error } = await supabase
       .from("intakesessions")
       .select("*")
@@ -385,7 +425,6 @@ app.get("/api/vapi/call-status/:callId", async (req, res) => {
 // API: Get all sessions with SOAP notes
 app.get("/api/sessions", async (req, res) => {
   try {
-    // Get all intake sessions
     const { data: sessions, error: sessionsError } = await supabase
       .from("intakesessions")
       .select("*")
@@ -396,25 +435,18 @@ app.get("/api/sessions", async (req, res) => {
       return res.status(500).json({ error: sessionsError.message });
     }
 
-    // Get SOAP notes for each session
     const sessionsWithSoap = await Promise.all(
       sessions.map(async (session) => {
-        // Get SOAP notes for this session
-        const { data: soapNotes, error: soapError } = await supabase
+        const { data: soapNotes } = await supabase
           .from("soapnotes")
           .select("*")
           .eq("sessionid", session.id)
           .single();
 
-        if (soapError && soapError.code !== "PGRST116") {
-          console.error("SOAP notes query error:", soapError);
-        }
-
-        // Generate public URLs for files
         let pdfUrl = null;
         let recordingUrl = null;
 
-        if (soapNotes && soapNotes.pdf_url) {
+        if (soapNotes?.pdf_url) {
           const { data: pdfData } = supabase.storage
             .from("verde-health-bucket")
             .getPublicUrl(soapNotes.pdf_url);
@@ -444,7 +476,7 @@ app.get("/api/sessions", async (req, res) => {
     res.json(sessionsWithSoap);
 
   } catch (error) {
-    console.error("Unexpected error in /api/sessions:", error);
+    console.error("Error in /api/sessions:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -454,7 +486,6 @@ app.get("/api/soap/pdf/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get SOAP note
     const { data: soapNote, error } = await supabase
       .from("soapnotes")
       .select("*")
@@ -465,11 +496,10 @@ app.get("/api/soap/pdf/:id", async (req, res) => {
       return res.status(404).json({ error: "SOAP note not found" });
     }
 
-    // Generate signed URL for PDF
     if (soapNote.pdf_url) {
       const { data: signedUrl, error: urlError } = await supabase.storage
         .from("verde-health-bucket")
-        .createSignedUrl(soapNote.pdf_url, 3600); // 1 hour expiry
+        .createSignedUrl(soapNote.pdf_url, 3600);
 
       if (!urlError && signedUrl) {
         res.json({ 
@@ -489,39 +519,6 @@ app.get("/api/soap/pdf/:id", async (req, res) => {
   }
 });
 
-// API: Get recording URL
-app.get("/api/recording/:sessionId", async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-
-    // Get session
-    const { data: session, error } = await supabase
-      .from("intakesessions")
-      .select("vapi_recording_url")
-      .eq("id", sessionId)
-      .single();
-
-    if (error || !session || !session.vapi_recording_url) {
-      return res.status(404).json({ error: "Recording not found" });
-    }
-
-    // Generate signed URL for recording
-    const { data: signedUrl, error: urlError } = await supabase.storage
-      .from("verde-health-bucket")
-      .createSignedUrl(session.vapi_recording_url, 3600); // 1 hour expiry
-
-    if (!urlError && signedUrl) {
-      res.json({ url: signedUrl.signedUrl });
-    } else {
-      throw new Error("Failed to generate signed URL");
-    }
-
-  } catch (error) {
-    console.error("Error getting recording:", error);
-    res.status(500).json({ error: "Failed to retrieve recording" });
-  }
-});
-
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({ 
@@ -530,9 +527,17 @@ app.get("/api/health", (req, res) => {
     service: "Verde Health API with Vapi Integration",
     vapi: {
       configured: !!VAPI_API_KEY,
-      assistantId: !!VAPI_ASSISTANT_ID
+      assistantId: !!VAPI_ASSISTANT_ID,
+      phoneNumberId: !!VAPI_PHONE_NUMBER_ID
     }
   });
+});
+
+// Test endpoint
+app.post("/api/test-webhook", (req, res) => {
+  console.log('TEST WEBHOOK - Headers:', req.headers);
+  console.log('TEST WEBHOOK - Body:', req.body);
+  res.json({ received: true, test: true });
 });
 
 // Serve the main HTML file for all other routes
@@ -547,7 +552,7 @@ app.listen(PORT, () => {
   console.log(`📞 Vapi integration: ${VAPI_API_KEY ? 'Connected' : 'Not configured'}`);
   console.log(`🔗 Visit http://localhost:${PORT} to access the application`);
   
-  if (!VAPI_API_KEY || !VAPI_ASSISTANT_ID) {
-    console.warn('⚠️  Warning: Vapi credentials not configured. Please set VAPI_API_KEY and VAPI_ASSISTANT_ID in .env');
+  if (!VAPI_API_KEY || !VAPI_ASSISTANT_ID || !VAPI_PHONE_NUMBER_ID) {
+    console.warn('⚠️  Warning: Vapi credentials not fully configured');
   }
 });
