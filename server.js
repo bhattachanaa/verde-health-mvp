@@ -8,24 +8,29 @@ const fs = require("fs");
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public")); // Serve static frontend files
+app.use(express.static("public"));
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // Helper to delete audio from Supabase Storage bucket after processing
 async function deleteAudioFile(filePath) {
-  const { data, error } = await supabase.storage
-    .from("verde-health-bucket")
-    .remove([filePath]);
+  try {
+    const { data, error } = await supabase.storage
+      .from("verde-health-bucket")
+      .remove([filePath]);
 
-  if (error) {
-    console.error("Error deleting audio file:", error);
+    if (error) {
+      console.error("Error deleting audio file:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Unexpected error deleting audio file:", err);
     return false;
   }
-  return true;
 }
 
-// API: Get all intake sessions with patient info and SOAP note (including pdf_url)
+// API: Get all intake sessions with patient info and SOAP notes (including pdf_url)
 app.get("/api/sessions", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -48,42 +53,47 @@ app.get("/api/sessions", async (req, res) => {
       `)
       .order("createdat", { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase query error in /api/sessions:", error);
+      return res.status(500).json({ error: error.message });
+    }
 
-    // Generate signed URLs for pdf and audio files if exists
-    const signedData = await Promise.all(data.map(async (session) => {
-      let pdfUrl = null;
-      if (session.soapnotes && session.soapnotes.pdf_url) {
-        const { signedURL, error: urlError } = await supabase.storage
-          .from("verde-health-bucket")
-          .createSignedUrl(session.soapnotes.pdf_url, 60 * 60);
-        if (!urlError) pdfUrl = signedURL;
-      }
+    const signedData = await Promise.all(
+      data.map(async (session) => {
+        let pdfUrl = null;
+        if (session.soapnotes && session.soapnotes.pdf_url) {
+          const { signedURL, error: urlError } = await supabase.storage
+            .from("verde-health-bucket")
+            .createSignedUrl(session.soapnotes.pdf_url, 60 * 60);
+          if (!urlError) pdfUrl = signedURL;
+          else console.warn("Error signing PDF url:", urlError);
+        }
 
-      let audioUrl = null;
-      if (session.audio_path) {
-        const { signedURL, error: audioError } = await supabase.storage
-          .from("verde-health-bucket")
-          .createSignedUrl(session.audio_path, 60 * 60);
-        if (!audioError) audioUrl = signedURL;
-      }
+        let audioUrl = null;
+        if (session.audio_path) {
+          const { signedURL, error: audioError } = await supabase.storage
+            .from("verde-health-bucket")
+            .createSignedUrl(session.audio_path, 60 * 60);
+          if (!audioError) audioUrl = signedURL;
+          else console.warn("Error signing audio url:", audioError);
+        }
 
-      return {
-        ...session,
-        soapnotes: session.soapnotes ? { ...session.soapnotes, pdf_url: pdfUrl } : null,
-        audio_url: audioUrl,
-      };
-    }));
+        return {
+          ...session,
+          soapnotes: session.soapnotes ? { ...session.soapnotes, pdf_url: pdfUrl } : null,
+          audio_url: audioUrl,
+        };
+      }),
+    );
 
     res.json(signedData);
-
   } catch (error) {
-    console.error("Error fetching sessions:", error);
+    console.error("Unexpected server error in /api/sessions:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Optional: API to preview SOAP note document (could be HTML or PDF stream)
+// API to preview SOAP notes
 app.get("/api/soap/preview/:id", async (req, res) => {
   try {
     const soapId = req.params.id;
@@ -94,31 +104,35 @@ app.get("/api/soap/preview/:id", async (req, res) => {
       .single();
 
     if (error || !data) {
+      console.error("SOAP note not found:", error);
       return res.status(404).json({ error: "SOAP note not found" });
     }
 
-    // You can choose to return structured JSON or serve a PDF from storage
     res.json(data);
   } catch (err) {
+    console.error("Unexpected error in /api/soap/preview/:id:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Example webhook or process where audio is handled & deleted
+// Example webhook or post-processing audio endpoint
 app.post("/api/process-audio", async (req, res) => {
-  // Assume req.body contains session info & audio file path
   const { sessionId, audioPath } = req.body;
 
-  // Process audio to extract data and save SOAP note (not implemented here)
-  // ...
+  try {
+    // Process audio & store SOAP note logic here (out of scope)
+    // ...
 
-  // After successful storage of info, delete audio from bucket
-  const deleted = await deleteAudioFile(audioPath);
-  if (!deleted) {
-    console.warn("Audio file deletion failed or was not found");
+    const deleted = await deleteAudioFile(audioPath);
+    if (!deleted) {
+      console.warn("Audio file deletion failed or was not found");
+    }
+
+    res.json({ status: "Processed and cleaned audio file" });
+  } catch (error) {
+    console.error("Error processing audio:", error);
+    res.status(500).json({ error: error.message });
   }
-
-  res.json({ status: "Processed and cleaned audio file" });
 });
 
 // Start server
